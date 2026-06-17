@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+outputs/
+*.pyc
+*.pkl
+index.pkl
+.DS_Store
+*.log
+.idea/
+.vscode/

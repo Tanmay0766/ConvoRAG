@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ConvoRAG — Conversation Intelligence Chatbot</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#141b26;--surface:#1c2434;--surface2:#222c3f;--border:#38445b;
+  --accent:#7f8ba6;--green:#22c55e;--red:#ef4444;
+  --text:#e6e9ef;--text2:#a0a9bb;--text3:#7d889b;
+  --radius:12px;--shadow:0 8px 24px rgba(0,0,0,0.22);
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+/* header */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100}
+.logo{width:36px;height:36px;background:#2f3747;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text2);font-weight:700}
+header h1{font-size:18px;font-weight:700;color:var(--text)}
+#status-badge{margin-left:auto;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#1e2a1e;color:#6b7280;border:1px solid var(--border);display:flex;align-items:center;gap:6px}
+#status-badge.ready{background:#0f2a1e;color:var(--green);border-color:#22c55e44}
+#status-dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+
+/* layout */
+.layout{display:grid;grid-template-columns:300px 1fr 280px;flex:1;height:calc(100vh - 65px);overflow:hidden}
+
+/* left panel */
+.panel{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.panel-header{padding:16px 20px;font-size:13px;font-weight:600;color:var(--text2);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.panel-body{flex:1;overflow-y:auto;padding:16px}
+.panel-body::-webkit-scrollbar{width:4px}
+.panel-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* upload box */
+.upload-box{border:2px dashed var(--border);border-radius:var(--radius);padding:24px 16px;text-align:center;cursor:pointer;transition:.2s;margin-bottom:16px;background:var(--surface2)}
+.upload-box:hover{border-color:var(--accent);background:#2a3241}
+.upload-box.dragging{border-color:var(--accent);background:#2a3241}
+.upload-icon{font-size:28px;margin-bottom:8px;color:var(--text2)}
+.upload-box p{font-size:13px;color:var(--text2)}
+#file-input{display:none}
+.btn{width:100%;padding:10px;border-radius:10px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.95}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+#process-btn{margin-top:8px}
+
+/* topic list */
+.topic-item{padding:12px;border-radius:10px;border:1px solid var(--border);margin-bottom:8px;cursor:pointer;transition:.15s}
+.topic-item:hover{border-color:var(--accent);background:#6c63ff0d}
+.topic-num{font-size:10px;font-weight:700;color:var(--accent);letter-spacing:.08em;text-transform:uppercase}
+.topic-title{font-size:13px;font-weight:600;margin:3px 0;color:var(--text)}
+.topic-range{font-size:11px;color:var(--text3)}
+.topic-header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.topic-sentiment-badge{font-size:9px;font-weight:600;padding:2px 8px;border-radius:12px;background:#6c63ff15;color:var(--accent);border:1px solid #6c63ff33;text-transform:capitalize}
+.topic-details{display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px;animation:fadeUp .2s ease}
+.topic-item.expanded .topic-details{display:block}
+.topic-summary-box strong, .topic-meta-sec strong{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px}
+.topic-summary-box p{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:8px}
+.topic-meta-sec{margin-top:10px}
+.topic-bullets{padding-left:14px;margin-bottom:8px}
+.topic-bullets li{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:4px}
+.topic-participants{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.participant-chip{padding:2px 8px;border-radius:10px;font-size:10px;background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.topic-quotes{margin-top:4px;display:flex;flex-direction:column;gap:6px}
+.topic-quotes blockquote{border-left:2px solid var(--accent);padding-left:8px;font-size:11px;color:var(--text2);font-style:italic;line-height:1.4}
+.empty-state{text-align:center;color:var(--text3);font-size:13px;padding:24px 0}
+.empty-state .big{font-size:28px;margin-bottom:8px}
+
+/* center chat */
+.chat-area{display:flex;flex-direction:column;background:var(--bg)}
+.chat-msgs{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:16px}
+.chat-msgs::-webkit-scrollbar{width:5px}
+.chat-msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* messages */
+.msg{display:flex;gap:10px;animation:fadeUp .25s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{flex-direction:row-reverse}
+.avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;margin-top:2px}
+.avatar.bot{background:var(--accent);color:#fff}
+.avatar.user{background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.bubble{max-width:72%;padding:12px 16px;border-radius:18px;font-size:14px;line-height:1.6}
+.bubble.bot{background:var(--surface2);border:1px solid var(--border);border-top-left-radius:4px}
+.bubble.user{background:var(--accent);color:#fff;border-top-right-radius:4px}
+.bubble strong{display:block;margin-top:8px;margin-bottom:2px;color:var(--accent)}
+.bubble strong:first-child{margin-top:0}
+
+/* suggestions */
+.suggestions{display:flex;flex-wrap:wrap;gap:8px;padding:0 28px 12px}
+.suggestion{padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--text2);cursor:pointer;transition:.15s;white-space:nowrap}
+.suggestion:hover{border-color:var(--accent);color:var(--accent);background:#6c63ff11}
+
+/* input */
+.chat-input-area{padding:16px 28px 20px;border-top:1px solid var(--border);background:var(--surface)}
+.input-row{display:flex;gap:10px;align-items:flex-end}
+#query-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 16px;color:var(--text);font-family:inherit;font-size:14px;resize:none;outline:none;transition:.15s;min-height:46px;max-height:120px}
+#query-input:focus{border-color:var(--accent)}
+#send-btn{padding:12px 20px;border-radius:12px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;transition:.15s;display:flex;align-items:center;justify-content:center;min-width:46px}
+#send-btn:hover{opacity:.88;transform:translateY(-1px)}
+#send-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+/* right panel */
+.right-panel{background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.persona-section{margin-bottom:16px}
+.persona-label{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.persona-tag{display:inline-block;padding:4px 10px;border-radius:12px;font-size:11px;background:#6c63ff1a;color:var(--accent);border:1px solid #6c63ff33;margin:2px}
+.persona-list li{font-size:12px;color:var(--text2);line-height:1.7;list-style:none;padding-left:12px;position:relative}
+.persona-list li::before{content:'•';position:absolute;left:0;color:var(--accent)}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+.stat-val{font-size:18px;font-weight:700;color:var(--accent)}
+.stat-lbl{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* loading */
+.typing{display:flex;gap:4px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:18px;border-top-left-radius:4px;width:fit-content}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--text3);animation:bounce 1.2s infinite}
+.dot:nth-child(2){animation-delay:.2s}
+.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+
+/* progress */
+#progress-bar{height:3px;background:var(--accent);width:0;transition:width .5s;position:fixed;top:0;left:0;z-index:999}
+
+/* toast */
+#toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;z-index:999;transform:translateY(60px);opacity:0;transition:.3s}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.success{background:#0f2a1e;color:var(--green);border:1px solid #22c55e44}
+#toast.error{background:#2a0f0f;color:var(--red);border:1px solid #ef444444}
+
+@media(max-width:900px){.layout{grid-template-columns:1fr}.panel,.right-panel{display:none}}
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+<div id="toast"></div>
+
+<header>
+  <div class="logo">C</div>
+  <h1>ConvoRAG</h1>
+  <span style="color:var(--text3);font-size:13px">Conversation Intelligence</span>
+  <div id="status-badge"><span id="status-dot"></span><span id="status-text">Not processed</span></div>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT -->
+  <div class="panel">
+    <div class="panel-header">Data Source</div>
+    <div class="panel-body">
+      <div class="upload-box" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="upload-icon"></div>
+        <p><strong>Drop CSV here</strong><br>or click to browse</p>
+      </div>
+      <input type="file" id="file-input" accept=".csv"/>
+      <button class="btn btn-primary" id="process-btn" disabled>Process Conversations</button>
+      <div style="margin-top:8px">
+        <!-- Demo data removed -->
+      </div>
+    </div>
+
+    <div class="panel-header" style="border-top:1px solid var(--border)">Topic Checkpoints</div>
+    <div class="panel-body" id="topics-list">
+      <div class="empty-state"><div class="big"></div>Process a CSV to see topic segments</div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="chat-area">
+    <div class="chat-msgs" id="chat-msgs">
+      <div class="msg">
+        <div class="avatar bot">B</div>
+        <div class="bubble bot">
+          <strong>Welcome to ConvoRAG</strong>
+          Upload a conversation CSV and click <em>Process</em>, then ask me anything about habits, topics, communication style, or personality insights.
+        </div>
+      </div>
+    </div>
+
+    <div class="suggestions" id="suggestions">
+      <div class="suggestion" onclick="useSuggestion(this)">Describe the user</div>
+      <div class="suggestion" onclick="useSuggestion(this)">What are their habits?</div>
+      <div class="suggestion" onclick="useSuggestion(this)">How do they communicate?</div>
+      <div class="suggestion" onclick="useSuggestion(this)">What topics do they discuss?</div>
+      <div class="suggestion" onclick="useSuggestion(this)">What is their tone?</div>
+    </div>
+
+    <div class="chat-input-area">
+      <div class="input-row">
+        <textarea id="query-input" placeholder="Ask about the user, habits, topics, communication style…" rows="1"></textarea>
+        <button id="send-btn" onclick="sendQuery()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-panel">
+    <div class="panel-header">User Persona</div>
+    <div class="panel-body" id="persona-panel">
+      <div class="empty-state"><div class="big"></div>Persona will appear after processing</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let selectedFile = null;
+
+// file drop select
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const processBtn = document.getElementById('process-btn');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragging'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragging');
+  selectedFile = e.dataTransfer.files[0];
+  updateDropZone();
+});
+fileInput.addEventListener('change', () => {
+  selectedFile = fileInput.files[0];
+  updateDropZone();
+});
+
+function updateDropZone() {
+  if (!selectedFile) return;
+  dropZone.innerHTML = `<div class="upload-icon"></div><p><strong>${selectedFile.name}</strong><br>${(selectedFile.size/1024).toFixed(1)} KB</p>`;
+  processBtn.disabled = false;
+}
+
+// demo removed
+
+// process
+processBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  processBtn.disabled = true;
+  showProgress();
+  const form = new FormData();
+  form.append('file', selectedFile);
+  const r = await fetch('/api/process', { method: 'POST', body: form });
+  const d = await r.json();
+  hideProgress();
+  processBtn.disabled = false;
+  if (d.error) { showToast(d.error, 'error'); return; }
+  showToast(`✓ ${d.total_messages} messages · ${d.topics_detected} topics detected`, 'success');
+  refreshStatus(); loadTopics(); loadPersona();
+  addBotMsg(`Processed **${d.total_messages} messages** → detected **${d.topics_detected} topic checkpoints** and **${d.checkpoints} × 100-message checkpoints**. Persona extracted with ${d.persona_habits} habit signals. Ask me anything!`);
+});
+
+//  Query 
+async function sendQuery() {
+  const inp = document.getElementById('query-input');
+  const q = inp.value.trim();
+  if (!q) return;
+  inp.value = ''; inp.style.height = 'auto';
+  addUserMsg(q);
+  const typing = addTyping();
+  document.getElementById('send-btn').disabled = true;
+
+  try {
+    const r = await fetch('/api/query', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({query: q})
+    });
+    const d = await r.json();
+    typing.remove();
+    if (d.error) { addBotMsg('Error: ' + d.error); }
+    else { addBotMsg(d.answer); }
+  } catch(e) {
+    typing.remove();
+    addBotMsg('Network error. Is the server running?');
+  }
+  document.getElementById('send-btn').disabled = false;
+}
+
+document.getElementById('query-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuery(); }
+});
+document.getElementById('query-input').addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+
+function useSuggestion(el) {
+  document.getElementById('query-input').value = el.textContent;
+  sendQuery();
+}
+
+// dom helpers
+function addUserMsg(text) {
+  const msgs = document.getElementById('chat-msgs');
+  msgs.innerHTML += `<div class="msg user"><div class="avatar user">👤</div><div class="bubble user">${esc(text)}</div></div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addBotMsg(text) {
+  const msgs = document.getElementById('chat-msgs');
+  const html = markdownToHtml(text);
+  msgs.innerHTML += `<div class="msg"><div class="avatar bot">🧠</div><div class="bubble bot">${html}</div></div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function addTyping() {
+  const msgs = document.getElementById('chat-msgs');
+  const div = document.createElement('div');
+  div.className = 'msg';
+  div.innerHTML = `<div class="avatar bot">🧠</div><div class="typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+function markdownToHtml(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code style="background:#1a1f38;padding:1px 5px;border-radius:4px">$1</code>')
+    .replace(/\n/g, '<br/>');
+}
+
+function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// status
+async function refreshStatus() {
+  const r = await fetch('/api/status');
+  const d = await r.json();
+  const badge = document.getElementById('status-badge');
+  const st = document.getElementById('status-text');
+  if (d.processed) {
+    badge.className = 'status-badge ready';
+    st.textContent = `Ready · ${d.topic_count} topics`;
+    badge.style.cssText = 'margin-left:auto;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;background:#0f2a1e;color:#22c55e;border:1px solid #22c55e44;display:flex;align-items:center;gap:6px';
+    document.getElementById('status-dot').style.background = '#22c55e';
+  }
+}
+
+// Topics sidebar 
+async function loadTopics() {
+  const r = await fetch('/api/topics');
+  const d = await r.json();
+  const topics = d.topics || [];
+  const el = document.getElementById('topics-list');
+  if (!topics.length) { el.innerHTML = '<div class="empty-state"><div class="big">📭</div>No topics found</div>'; return; }
+  el.innerHTML = topics.map(t => {
+    const keyPointsHtml = t.key_points && t.key_points.length 
+      ? `<div class="topic-meta-sec"><strong>Key Points:</strong><ul class="topic-bullets">${t.key_points.map(pt => `<li>${esc(pt)}</li>`).join('')}</ul></div>`
+      : '';
+      
+    const participantsHtml = t.participants && t.participants.length
+      ? `<div class="topic-meta-sec"><strong>Participants:</strong><div class="topic-participants">${t.participants.map(p => `<span class="participant-chip">${esc(p)}</span>`).join('')}</div></div>`
+      : '';
+      
+    const quotesHtml = t.key_quotes && t.key_quotes.length
+      ? `<div class="topic-meta-sec"><strong>Key Quotes:</strong><div class="topic-quotes">${t.key_quotes.map(q => `<blockquote>${esc(q)}</blockquote>`).join('')}</div></div>`
+      : '';
+
+    return `
+      <div class="topic-item" onclick="this.classList.toggle('expanded')">
+        <div class="topic-header-row">
+          <div class="topic-num">Topic ${t.topic_number}</div>
+          <span class="topic-sentiment-badge">${esc(t.sentiment || 'neutral')}</span>
+        </div>
+        <div class="topic-title">${esc(t.title||'General')}</div>
+        <div class="topic-range">Messages ${t.start_idx}–${t.end_idx} · ${t.message_count} msgs</div>
+        
+        <div class="topic-details">
+          <div class="topic-summary-box">
+            <strong>Summary:</strong>
+            <p>${esc(t.summary||'')}</p>
+          </div>
+          ${keyPointsHtml}
+          ${participantsHtml}
+          ${quotesHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// persona sidebar
+async function loadPersona() {
+  const r = await fetch('/api/persona');
+  const p = await r.json();
+  if (p.error) return;
+  const el = document.getElementById('persona-panel');
+  const cs = p.communication_style || {};
+  const ep = p.emotional_profile || {};
+  el.innerHTML = `
+    <div class="persona-section">
+      <div class="persona-label">Traits</div>
+      <ul class="persona-list">${(p.personality_traits||[]).map(t=>`<li>${esc(t)}</li>`).join('')}</ul>
+    </div>
+    <div class="persona-section">
+      <div class="persona-label">Habits</div>
+      <ul class="persona-list">${(p.habits||[]).slice(0,5).map(h=>`<li>${esc(h)}</li>`).join('')||'<li>No patterns detected</li>'}</ul>
+    </div>
+    <div class="persona-section">
+      <div class="persona-label">Top Topics</div>
+      ${(p.top_topics||[]).slice(0,8).map(t=>`<span class="persona-tag">${esc(t)}</span>`).join('')}
+    </div>
+    <div class="persona-section">
+      <div class="persona-label">Style Metrics</div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-val">${cs.avg_words_per_message||0}</div><div class="stat-lbl">Avg words</div></div>
+        <div class="stat-card"><div class="stat-val">${((cs.emoji_ratio||0)*100).toFixed(0)}%</div><div class="stat-lbl">Emoji rate</div></div>
+        <div class="stat-card"><div class="stat-val">${((cs.question_rate||0)*100).toFixed(0)}%</div><div class="stat-lbl">Questions</div></div>
+        <div class="stat-card"><div class="stat-val">${ep.overall_sentiment||'—'}</div><div class="stat-lbl">Sentiment</div></div>
+      </div>
+    </div>
+    <div class="persona-section">
+      <div class="persona-label">Personal Facts</div>
+      <ul class="persona-list">${(p.personal_facts||[]).map(f=>`<li>${esc(f)}</li>`).join('')||'<li>No facts detected</li>'}</ul>
+    </div>
+  `;
+}
+
+// progress toast
+function showProgress() { document.getElementById('progress-bar').style.width='70%'; }
+function hideProgress() { const pb=document.getElementById('progress-bar'); pb.style.width='100%'; setTimeout(()=>{pb.style.width='0';},400); }
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `show ${type}`;
+  setTimeout(() => { t.className = ''; }, 3500);
+}
+
+// init
+refreshStatus().then(() => {
+  fetch('/api/status').then(r=>r.json()).then(d => {
+    if (d.processed) { loadTopics(); loadPersona(); }
+  });
+});
+</script>
+</body>
+</html>

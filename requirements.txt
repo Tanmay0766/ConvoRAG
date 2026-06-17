@@ -1,0 +1,7 @@
+flask>=2.3
+pandas>=1.5
+numpy>=1.23
+scikit-learn>=1.2
+gunicorn>=21.0
+python-dotenv>=1.0
+requests>=2.31.0
