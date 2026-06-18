@@ -3,6 +3,9 @@
 Conversation intelligence chatbot powered by local-first RAG. Extract topics, detect personality, and chat with conversation history — no external APIs.
 
 **Live Demo:** https://web-production-fbb03.up.railway.app/
+**Video** 
+
+https://github.com/user-attachments/assets/a7181299-e012-49f7-8925-9bf8449d4183
 
 ## Features
 
